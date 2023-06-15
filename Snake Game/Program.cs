@@ -7,20 +7,20 @@ class Program
 {
     static void Main()
     {
-        int screenwidth = 32;
-        int screenheight = 16;
+        int screenwidth = 34; // Increased by 2 to account for borders
+        int screenheight = 18; // Increased by 2 to account for borders
         Console.SetWindowSize(screenwidth, screenheight);
         Console.SetBufferSize(screenwidth, screenheight);
 
         Random randomnummer = new Random();
         int score = 5;
         int gameover = 0;
-        int maxlevel = 10;
-        int speed = 500;
+        int maxlevel = 500;
+        int speed = 100;
         int[] xpos = new int[50];
         int[] ypos = new int[50];
-        int appleX = randomnummer.Next(0, screenwidth);
-        int appleY = randomnummer.Next(0, screenheight);
+        int appleX = randomnummer.Next(1, screenwidth - 1); // Adjusted to avoid border
+        int appleY = randomnummer.Next(1, screenheight - 1); // Adjusted to avoid border
         int level = 1;
         int snakelength = 5;
         int direction = 1; // 1 = right, 2 = left, 3 = up, 4 = down
@@ -44,8 +44,8 @@ class Program
                     Console.WriteLine("You win!");
                     break;
                 }
-                appleX = randomnummer.Next(0, screenwidth);
-                appleY = randomnummer.Next(0, screenheight);
+                appleX = randomnummer.Next(1, screenwidth - 1); // Adjusted to avoid border
+                appleY = randomnummer.Next(1, screenheight - 1); // Adjusted to avoid border
             }
 
             for (int i = snakelength - 1; i > 0; i--)
@@ -107,7 +107,7 @@ class Program
                 }
             }
 
-            if (xpos[0] >= screenwidth || xpos[0] < 0 || ypos[0] >= screenheight || ypos[0] < 0)
+            if (xpos[0] >= screenwidth - 1 || xpos[0] <= 0 || ypos[0] >= screenheight - 1 || ypos[0] <= 0)
             {
                 gameover = 1;
             }
@@ -139,8 +139,8 @@ class Program
                     direction = 1;
                     xpos = new int[50];
                     ypos = new int[50];
-                    appleX = randomnummer.Next(0, screenwidth);
-                    appleY = randomnummer.Next(0, screenheight);
+                    appleX = randomnummer.Next(1, screenwidth - 1); // Adjusted to avoid border
+                    appleY = randomnummer.Next(1, screenheight - 1); // Adjusted to avoid border
                     for (int i = 0; i < snakelength; i++)
                     {
                         xpos[i] = 5;
