@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 
 class Program
 {
-    static string connectionString = "Data Source=(LocalDB)\\MSSQLLocalDB;AttachDbFilename=\"C:\\Users\\keean\\source\\repos\\Snake Game\\Snake Game\\User.mdf\";Integrated Security=True";
+    //static string connectionString = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=|DataDirectory|\User.mdf;Integrated Security=True";
+    static string connectionString = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=""C:\Users\keean\source\repos\Snake Game\Snake Game\User.mdf"";Integrated Security=True";
     static List<User> users = new List<User>();
     static User loggedInUser = null;
     static int score = 0;
@@ -35,6 +37,11 @@ class Program
 
         // Maximize the console window
         ShowWindow(consoleWindow, SW_MAXIMIZE);
+
+        string targetDirectoryPath = "Data";
+        string dataDirectoryPath = Path.GetFullPath(targetDirectoryPath);
+
+        AppDomain.CurrentDomain.SetData("DataDirectory", dataDirectoryPath);
 
         while (!loggedIn)
         {
@@ -73,8 +80,6 @@ class Program
                 break;
             }
 
-            ShowStartScreen();
-
             Random randomnummer = new Random();
             int score = 0;
             int gameover = 0;
@@ -104,6 +109,8 @@ class Program
             }
 
             int appleCount = 0; // Variable
+
+            int pointsSinceColorChange = 0; // Added
 
             while (true)
             {
@@ -208,29 +215,42 @@ class Program
 
                 if (gameover == 1)
                 {
+                    
+                    break;
+                }
+                else
+                {
                     break;
                 }
 
                 if (xpos[0] == appleX && ypos[0] == appleY)
                 {
                     snakelength++;
-                    score += 10;
+                    score += 1;
                     appleX = randomnummer.Next(1, screenwidth - 1); // Adjusted to avoid border
                     appleY = randomnummer.Next(1, screenheight - 1); // Adjusted to avoid border
 
                     // Increment appleCount by 1
                     appleCount++;
 
-                    if (appleCount == 5) // Changed condition to 5
+                    if (appleCount == 5)
                     {
                         appleCount = 0;
                         level++;
-                        speed -= 10;
+                        speed -= 15;
+
+                        // Change snake color every 5 points
+                        if (score % 5 == 0)
+                        {
+                            Console.ForegroundColor = GetRandomConsoleColor();
+                            pointsSinceColorChange = 0;
+                        }
                     }
 
                     if (score > highScore)
                     {
                         highScore = score;
+                        SaveHighScore(highScore);
                     }
                 }
 
@@ -293,8 +313,11 @@ class Program
 
                 Thread.Sleep(speed);
             }
-
+            SaveHighScore(highScore);
             ShowGameOverScreen(score, highScore, previousScores);
+            
+
+
         }
     }
 
@@ -305,17 +328,32 @@ class Program
         Console.Write("Username: ");
         string username = Console.ReadLine();
 
+        // Check if the username exists
+        bool usernameExists = CheckUsernameExists(username);
+
+        if (usernameExists)
+        {
+            Console.WriteLine("This username already exists, please try again.");
+            return;
+        }
+
         Console.Write("Password: ");
         string password = Console.ReadLine();
+
+        int highScore = 0; // Initialize with default high score value
 
         using (SqlConnection connection = new SqlConnection(connectionString))
         {
             connection.Open();
 
-            string query = $"INSERT INTO Users (Username, Password) VALUES ('{username}', '{password}')";
+            string query = $"INSERT INTO [User] (Username, Password, Highscore) VALUES (@Username, @Password, @Highscore)";
 
             using (SqlCommand command = new SqlCommand(query, connection))
             {
+                command.Parameters.AddWithValue("@Username", username);
+                command.Parameters.AddWithValue("@Password", password);
+                command.Parameters.AddWithValue("@Highscore", highScore);
+
                 int result = command.ExecuteNonQuery();
 
                 if (result > 0)
@@ -330,6 +368,25 @@ class Program
         }
     }
 
+    static bool CheckUsernameExists(string username)
+    {
+        using (SqlConnection connection = new SqlConnection(connectionString))
+        {
+            connection.Open();
+
+            string query = "SELECT COUNT(*) FROM [User] WHERE Username = @Username";
+
+            using (SqlCommand command = new SqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@Username", username);
+
+                int count = (int)command.ExecuteScalar();
+
+                return count > 0;
+            }
+        }
+    }
+
     static bool Login()
     {
         Console.WriteLine("Login");
@@ -339,6 +396,8 @@ class Program
 
         Console.Write("Password: ");
         string password = Console.ReadLine();
+
+        
 
         using (SqlConnection connection = new SqlConnection(connectionString))
         {
@@ -400,6 +459,51 @@ class Program
         Console.WriteLine("Press any key to continue...");
         Console.ReadKey();
     }
+
+
+   
+
+    private static ConsoleColor GetRandomConsoleColor()
+    {
+        ConsoleColor[] colors = (ConsoleColor[])ConsoleColor.GetValues(typeof(ConsoleColor));
+        return colors[new Random().Next(colors.Length)];
+    }
+
+    static void SaveHighScore(int highScore)
+    {
+        if (loggedInUser != null)
+        {
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string query = $"UPDATE [User] SET Highscore = @Highscore WHERE Username = @Username";
+
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@Highscore", highScore);
+                    command.Parameters.AddWithValue("@Username", loggedInUser.Username);
+
+                    int result = command.ExecuteNonQuery();
+
+                    if (result > 0)
+                    {
+                        Console.WriteLine("");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Failed to save high score.");
+                    }
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("No user is currently logged in.");
+        }
+    }
+
+
 }
 
 class User
@@ -407,9 +511,13 @@ class User
     public string Username { get; set; }
     public string Password { get; set; }
 
-    public User(string username, string password)
+    
+
+    public User(string username, string password )
     {
         Username = username;
         Password = password;
+        
     }
 }
+
